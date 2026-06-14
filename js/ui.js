@@ -9,6 +9,7 @@
   const PARAMS = [
     { id: 'hiddenLayers', fmt: (v) => v },
     { id: 'hiddenSize', fmt: (v) => v },
+    { id: 'visionSectors', fmt: (v) => v },
     { id: 'population', fmt: (v) => v },
     { id: 'generations', fmt: (v) => v },
     { id: 'steps', fmt: (v) => v },
@@ -39,6 +40,8 @@
     return {
       hiddenLayers: num('hiddenLayers'),
       hiddenSize: num('hiddenSize'),
+      visionSectors: num('visionSectors'),
+      recurrent: $('p-recurrent').checked,
       activation: $('p-activation').value,
       population: num('population'),
       generations: num('generations'),

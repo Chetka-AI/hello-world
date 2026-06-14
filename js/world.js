@@ -2,12 +2,12 @@
  * Świat symulacji: toroidalna mapa, pokarm w stałych miejscach (regeneruje się
  * tam, gdzie został zjedzony) oraz komórki sterowane sieciami neuronowymi.
  *
- * Sensory komórki (5 wejść sieci):
- *   0: bliskość najbliższego pokarmu (0..1)
- *   1: sin(kąt do pokarmu względem kierunku ruchu)
- *   2: cos(kąt do pokarmu względem kierunku ruchu)
- *   3: poziom energii (0..1)
- *   4: stała = 1 (dodatkowy bias wejściowy)
+ * Wejścia sieci (sensory):
+ *   - wzrok kierunkowy (retina): `visionSectors` sektorów w polu widzenia,
+ *     każdy zwraca bliskość (0..1) najbliższego pokarmu w danym sektorze,
+ *   - poziom energii (0..1),
+ *   - własna prędkość (0..1)  [propriocepcja],
+ *   - stała = 1 (bias wejściowy).
  *
  * Wyjścia sieci (2):
  *   0: skręt  (-1..1)
@@ -27,14 +27,30 @@
     metabolism: 0.10,   // koszt energii za sam krok
     moveCost: 0.06,     // dodatkowy koszt proporcjonalny do prędkości
     foodEnergy: 32,
-    sensorRange: 130,
+    sensorRange: 150,
+    fov: Math.PI * 1.5, // pole widzenia (270°)
   };
+
+  // najkrótsza różnica na osi toroidalnej (-size/2 .. size/2)
+  function wrapDelta(d, size) {
+    if (d > size * 0.5) d -= size;
+    else if (d < -size * 0.5) d += size;
+    return d;
+  }
+  function normAngle(a) {
+    while (a > Math.PI) a -= Math.PI * 2;
+    while (a < -Math.PI) a += Math.PI * 2;
+    return a;
+  }
 
   class World {
     constructor(config, rng) {
       this.cfg = config;
       this.rng = rng;
       this.size = config.worldSize;
+      this.visionSectors = config.visionSectors;
+      // liczba wejść sieci = sektory wzroku + energia + prędkość + bias
+      this.inputSize = this.visionSectors + 3;
       this.foods = [];
       this.cells = [];
       this.step = 0;
@@ -54,20 +70,24 @@
       }
     }
 
-    // Nowe pokolenie: ustaw komórki z podanych mózgów, odśwież pokarm.
+    // Nowe pokolenie: ustaw komórki z podanych mózgów, odśwież pokarm i pamięć.
     reset(brains) {
       this.step = 0;
       for (const f of this.foods) { f.available = true; f.timer = 0; }
-      this.cells = brains.map((brain) => ({
-        brain,
-        x: this.rng.range(0, this.size),
-        y: this.rng.range(0, this.size),
-        heading: this.rng.range(0, Math.PI * 2),
-        energy: C.startEnergy,
-        alive: true,
-        foodEaten: 0,
-        age: 0,
-      }));
+      this.cells = brains.map((brain) => {
+        brain.resetState(); // wyzeruj pamięć rekurencyjną
+        return {
+          brain,
+          x: this.rng.range(0, this.size),
+          y: this.rng.range(0, this.size),
+          heading: this.rng.range(0, Math.PI * 2),
+          energy: C.startEnergy,
+          speed: 0,
+          alive: true,
+          foodEaten: 0,
+          age: 0,
+        };
+      });
       return this;
     }
 
@@ -77,17 +97,47 @@
       return n;
     }
 
-    // Najbliższy dostępny pokarm dla danej komórki.
+    // Najbliższy dostępny pokarm (dystans toroidalny) — do wykrywania jedzenia.
     _nearestFood(cell) {
+      const size = this.size;
       let best = null, bestD = Infinity;
       for (const f of this.foods) {
         if (!f.available) continue;
-        const dx = f.x - cell.x;
-        const dy = f.y - cell.y;
+        const dx = wrapDelta(f.x - cell.x, size);
+        const dy = wrapDelta(f.y - cell.y, size);
         const d = dx * dx + dy * dy;
         if (d < bestD) { bestD = d; best = f; }
       }
       return best ? { food: best, dist: Math.sqrt(bestD) } : null;
+    }
+
+    // Wzrok kierunkowy: bliskość najbliższego pokarmu w każdym sektorze FOV.
+    _sense(cell) {
+      const size = this.size;
+      const sectors = this.visionSectors;
+      const half = C.fov / 2;
+      const vision = new Array(sectors).fill(0);
+
+      for (const f of this.foods) {
+        if (!f.available) continue;
+        const dx = wrapDelta(f.x - cell.x, size);
+        const dy = wrapDelta(f.y - cell.y, size);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > C.sensorRange) continue;
+        const rel = normAngle(Math.atan2(dy, dx) - cell.heading);
+        if (rel < -half || rel > half) continue; // poza polem widzenia
+        let idx = Math.floor(((rel + half) / C.fov) * sectors);
+        if (idx >= sectors) idx = sectors - 1;
+        if (idx < 0) idx = 0;
+        const closeness = 1 - dist / C.sensorRange;
+        if (closeness > vision[idx]) vision[idx] = closeness;
+      }
+
+      // propriocepcja + bias
+      vision.push(cell.energy / C.maxEnergy);
+      vision.push(cell.speed / C.maxSpeed);
+      vision.push(1);
+      return vision;
     }
 
     // Jeden krok symulacji.
@@ -107,36 +157,24 @@
         if (!cell.alive) continue;
         cell.age++;
 
-        // --- sensory ---
-        const near = this._nearestFood(cell);
-        let closeness = 0, relSin = 0, relCos = 0;
-        if (near) {
-          closeness = Math.max(0, 1 - near.dist / C.sensorRange);
-          const angTo = Math.atan2(near.food.y - cell.y, near.food.x - cell.x);
-          let rel = angTo - cell.heading;
-          // normalizacja do -PI..PI
-          while (rel > Math.PI) rel -= Math.PI * 2;
-          while (rel < -Math.PI) rel += Math.PI * 2;
-          relSin = Math.sin(rel);
-          relCos = Math.cos(rel);
-        }
-        const energyN = cell.energy / C.maxEnergy;
-
-        // --- decyzja sieci ---
-        const out = cell.brain.forward([closeness, relSin, relCos, energyN, 1]);
+        // --- decyzja sieci na podstawie sensorów ---
+        const inputs = this._sense(cell);
+        const out = cell.brain.forward(inputs);
         const turn = out[0] * C.maxTurn;
         const speed = Math.max(0, out[1]) * C.maxSpeed; // tylko ruch naprzód
+        cell.speed = speed;
 
         // --- ruch (mapa toroidalna) ---
         cell.heading += turn;
         cell.x = (cell.x + Math.cos(cell.heading) * speed + size) % size;
         cell.y = (cell.y + Math.sin(cell.heading) * speed + size) % size;
 
-        // --- jedzenie ---
+        // --- jedzenie (toroidalnie) ---
+        const near = this._nearestFood(cell);
         if (near && near.dist <= eatDist) {
-          // szybkie potwierdzenie po faktycznym ruchu
           const f = near.food;
-          const dx = f.x - cell.x, dy = f.y - cell.y;
+          const dx = wrapDelta(f.x - cell.x, size);
+          const dy = wrapDelta(f.y - cell.y, size);
           if (dx * dx + dy * dy <= eatDist2 && f.available) {
             f.available = false;
             f.timer = this.cfg.foodRegen;

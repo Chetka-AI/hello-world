@@ -6,7 +6,6 @@
 (function (global) {
   'use strict';
 
-  const INPUTS = 5;
   const OUTPUTS = 2;
 
   class Trainer {
@@ -14,15 +13,18 @@
       this.cfg = config;
       this.rng = new RNG(config.seed);
 
-      // budowa układu warstw: [5, hidden..., 2]
-      this.layout = [INPUTS];
+      // świat tworzymy najpierw — definiuje liczbę wejść sieci (sensory)
+      this.world = new World(config, this.rng);
+      this.recurrent = !!config.recurrent;
+
+      // budowa układu warstw: [liczba_sensorów, hidden..., 2]
+      this.layout = [this.world.inputSize];
       for (let i = 0; i < config.hiddenLayers; i++) this.layout.push(config.hiddenSize);
       this.layout.push(OUTPUTS);
 
-      this.world = new World(config, this.rng);
       this.population = [];
       for (let i = 0; i < config.population; i++) {
-        this.population.push(new NeuralNet(this.layout, config.activation).randomize(this.rng));
+        this.population.push(new NeuralNet(this.layout, config.activation, this.recurrent).randomize(this.rng));
       }
 
       this.gen = 1;
@@ -115,7 +117,7 @@
     }
 
     _crossover(a, b) {
-      const child = new NeuralNet(this.layout, this.cfg.activation);
+      const child = new NeuralNet(this.layout, this.cfg.activation, this.recurrent);
       const ga = a.genome, gb = b.genome, gc = child.genome;
       for (let i = 0; i < gc.length; i++) {
         gc[i] = this.rng.next() < 0.5 ? ga[i] : gb[i];

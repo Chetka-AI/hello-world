@@ -58,9 +58,21 @@
                 <option value="relu">ReLU (szybka)</option>
               </select>
             </label>
+            <label class="field">
+              <span class="field-label">Sektory wzroku (retina)</span>
+              <span class="field-row">
+                <input type="range" id="p-visionSectors" min="3" max="16" step="1" value="7" />
+                <output id="o-visionSectors">7</output>
+              </span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="p-recurrent" checked />
+              <span>Pamięć — sieć rekurencyjna (Elman)</span>
+            </label>
             <p class="hint">
-              Wejścia (5): bliskość pokarmu, kierunek do pokarmu (sin/cos),
-              poziom energii, stała. Wyjścia (2): skręt i prędkość.
+              Wejścia: wzrok kierunkowy (sektory) + energia + prędkość + stała.
+              Wyjścia (2): skręt i prędkość. Pamięć pozwala wykształcić
+              wytrwałość kierunku i eksplorację.
             </p>
           </div>
         </details>
