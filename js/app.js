@@ -20,7 +20,13 @@
 
     // zakładki
     document.querySelectorAll('.tab').forEach((tab) => {
-      tab.addEventListener('click', () => UI.switchView(tab.dataset.view));
+      tab.addEventListener('click', () => {
+        UI.switchView(tab.dataset.view);
+        // przerysuj wykresy po pokazaniu widoku (canvas ma już rozmiar)
+        if (tab.dataset.view === 'analysis' && trainer && trainer.history.length) {
+          UI.renderAnalysis(trainer);
+        }
+      });
     });
 
     $('btn-start').addEventListener('click', startTraining);
@@ -99,8 +105,9 @@
     paused = false;
     cancelAnimationFrame(rafId);
     UI.setProgress(trainer);
-    UI.renderAnalysis(trainer);
+    // najpierw pokaż widok, aby canvasy miały niezerowy rozmiar, potem rysuj
     UI.switchView('analysis');
+    UI.renderAnalysis(trainer);
   }
 
   function togglePause() {
@@ -116,8 +123,8 @@
     paused = false;
     cancelAnimationFrame(rafId);
     if (trainer.history.length) {
-      UI.renderAnalysis(trainer);
       UI.switchView('analysis');
+      UI.renderAnalysis(trainer);
     } else {
       showOverlay(true);
       UI.switchView('setup');
