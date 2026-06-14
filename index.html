@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0c1018" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>NeuroLife — symulacja ewolucji</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Górny pasek -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span class="brand-name">NeuroLife</span>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button class="tab is-active" data-view="setup" role="tab">Ustawienia</button>
+        <button class="tab" data-view="sim" role="tab">Symulacja</button>
+        <button class="tab" data-view="analysis" role="tab">Analiza</button>
+      </nav>
+    </header>
+
+    <!-- ============ WIDOK: USTAWIENIA ============ -->
+    <section class="view view-setup is-active" data-view="setup">
+      <div class="scroll">
+        <p class="intro">
+          Skonfiguruj „mózg" komórek i parametry ewolucji, a następnie uruchom
+          trening. Komórki uczą się szukać pokarmu metodą neuroewolucji.
+        </p>
+
+        <details class="card" open>
+          <summary>🧠 Sieć neuronowa</summary>
+          <div class="card-body">
+            <label class="field">
+              <span class="field-label">Liczba warstw ukrytych</span>
+              <span class="field-row">
+                <input type="range" id="p-hiddenLayers" min="0" max="3" step="1" value="1" />
+                <output id="o-hiddenLayers">1</output>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Neurony na warstwę</span>
+              <span class="field-row">
+                <input type="range" id="p-hiddenSize" min="2" max="16" step="1" value="6" />
+                <output id="o-hiddenSize">6</output>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Funkcja aktywacji</span>
+              <select id="p-activation">
+                <option value="tanh" selected>tanh (gładka, -1..1)</option>
+                <option value="sigmoid">sigmoid (0..1)</option>
+                <option value="relu">ReLU (szybka)</option>
+              </select>
+            </label>
+            <p class="hint">
+              Wejścia (5): bliskość pokarmu, kierunek do pokarmu (sin/cos),
+              poziom energii, stała. Wyjścia (2): skręt i prędkość.
+            </p>
+          </div>
+        </details>
+
+        <details class="card" open>
+          <summary>🧬 Trening / ewolucja</summary>
+          <div class="card-body">
+            <label class="field">
+              <span class="field-label">Wielkość populacji</span>
+              <span class="field-row">
+                <input type="range" id="p-population" min="10" max="200" step="5" value="60" />
+                <output id="o-population">60</output>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Liczba pokoleń</span>
+              <span class="field-row">
+                <input type="range" id="p-generations" min="5" max="300" step="5" value="50" />
+                <output id="o-generations">50</output>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Kroki na pokolenie</span>
+              <span class="field-row">
+                <input type="range" id="p-steps" min="200" max="2000" step="100" value="800" />
+                <output id="o-steps">800</output>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Współczynnik mutacji</span>
+              <span class="field-row">
+                <input type="range" id="p-mutRate" min="0" max="1" step="0.01" value="0.15" />
+                <output id="o-mutRate">0.15</output>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Siła mutacji</span>
+              <span class="field-row">
+                <input type="range" id="p-mutStrength" min="0.01" max="1" step="0.01" value="0.30" />
+                <output id="o-mutStrength">0.30</output>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Elita (% przeżywających)</span>
+              <span class="field-row">
+                <input type="range" id="p-elitism" min="0" max="0.5" step="0.01" value="0.10" />
+                <output id="o-elitism">0.10</output>
+              </span>
+            </label>
+          </div>
+        </details>
+
+        <details class="card">
+          <summary>🌍 Świat</summary>
+          <div class="card-body">
+            <label class="field">
+              <span class="field-label">Rozmiar mapy</span>
+              <span class="field-row">
+                <input type="range" id="p-worldSize" min="200" max="600" step="20" value="360" />
+                <output id="o-worldSize">360</output>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Ilość pokarmu</span>
+              <span class="field-row">
+                <input type="range" id="p-foodCount" min="10" max="200" step="5" value="80" />
+                <output id="o-foodCount">80</output>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Czas regeneracji pokarmu (kroki)</span>
+              <span class="field-row">
+                <input type="range" id="p-foodRegen" min="20" max="400" step="10" value="120" />
+                <output id="o-foodRegen">120</output>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Ziarno losowości (0 = losowe)</span>
+              <span class="field-row">
+                <input type="number" id="p-seed" value="0" min="0" step="1" />
+              </span>
+            </label>
+          </div>
+        </details>
+
+        <button id="btn-start" class="btn btn-primary btn-big">▶ Uruchom trening</button>
+      </div>
+    </section>
+
+    <!-- ============ WIDOK: SYMULACJA ============ -->
+    <section class="view view-sim" data-view="sim">
+      <div class="sim-stats" id="sim-stats">
+        <div class="stat"><span class="stat-val" id="s-gen">0</span><span class="stat-key">pokolenie</span></div>
+        <div class="stat"><span class="stat-val" id="s-step">0</span><span class="stat-key">krok</span></div>
+        <div class="stat"><span class="stat-val" id="s-alive">0</span><span class="stat-key">żywe</span></div>
+        <div class="stat"><span class="stat-val" id="s-best">0</span><span class="stat-key">best</span></div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="world"></canvas>
+        <div id="sim-overlay" class="sim-overlay hidden">
+          <p>Skonfiguruj parametry w zakładce <b>Ustawienia</b> i uruchom trening.</p>
+        </div>
+      </div>
+
+      <div class="sim-controls">
+        <label class="field field-inline">
+          <span class="field-label">Tempo</span>
+          <span class="field-row">
+            <input type="range" id="p-speed" min="1" max="60" step="1" value="6" />
+            <output id="o-speed">6×</output>
+          </span>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="p-turbo" />
+          <span>Turbo (bez animacji — najszybszy trening)</span>
+        </label>
+        <div class="btn-row">
+          <button id="btn-pause" class="btn">⏸ Pauza</button>
+          <button id="btn-stop" class="btn btn-danger">⏹ Stop</button>
+        </div>
+        <progress id="train-progress" value="0" max="1"></progress>
+      </div>
+    </section>
+
+    <!-- ============ WIDOK: ANALIZA ============ -->
+    <section class="view view-analysis" data-view="analysis">
+      <div class="scroll">
+        <div id="analysis-empty" class="empty">
+          <p>Brak danych. Uruchom i ukończ trening, aby zobaczyć analizę.</p>
+        </div>
+        <div id="analysis-content" class="hidden">
+          <div class="summary-grid" id="summary-grid"></div>
+
+          <div class="card chart-card">
+            <h3>Fitness przez pokolenia</h3>
+            <canvas class="chart" id="chart-fitness"></canvas>
+            <div class="legend">
+              <span class="lg lg-best">najlepszy</span>
+              <span class="lg lg-avg">średni</span>
+              <span class="lg lg-worst">najgorszy</span>
+            </div>
+          </div>
+
+          <div class="card chart-card">
+            <h3>Zjedzony pokarm (suma populacji)</h3>
+            <canvas class="chart" id="chart-food"></canvas>
+          </div>
+
+          <div class="card chart-card">
+            <h3>Różnorodność genetyczna</h3>
+            <canvas class="chart" id="chart-diversity"></canvas>
+            <p class="hint">Średnie odchylenie standardowe genomów — spadek oznacza zbieżność populacji.</p>
+          </div>
+
+          <div class="btn-row">
+            <button id="btn-export" class="btn">⬇ Eksportuj dane (JSON)</button>
+            <button id="btn-again" class="btn btn-primary">↻ Nowy trening</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="js/rng.js"></script>
+  <script src="js/nn.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/evolution.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
